@@ -1,0 +1,586 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<cwaopendata xmlns="urn:cwa:gov:tw:cwacommon:0.1">
+  <identifier>CWA-EQ115068-2026-1006-164108</identifier>
+  <sender>cwasoc@cwa.gov.tw</sender>
+  <sent>2026-10-06T16:44:33+08:00</sent>
+  <status>Actual</status>
+  <msgType>Issue</msgType>
+  <source>CWA</source>
+  <scope>Public</scope>
+  <dataset>
+    <datasetInfo>
+      <datasetDescription>Earthquake Report</datasetDescription>
+      <datasetLanguage>en</datasetLanguage>
+      <IssueTime>2026-10-06T16:44:33+08:00</IssueTime>
+      <validTime><EndTime>2026-10-07T00:44:33+08:00</EndTime></validTime>
+    </datasetInfo>
+    <Earthquake>
+      <ReportType>Earthquake Report</ReportType>
+      <EarthquakeNo>115068</EarthquakeNo>
+      <ReportContent>Magnitude 4.5 earthquake occurred at 10/06-16:41 in Taiwan. Epicenter was about 42.4 km SSW of Kaohsiung City Hall. Highest intensity was 3 around Kaohsiung City.</ReportContent>
+      <ReportColor>Green</ReportColor>
+      <Web>https://scweb.cwa.gov.tw/en-US/earthquake/details/2026100616410845068</Web>
+      <ReportImageURI>https://scweb.cwa.gov.tw/webdata/OLDEQ/202610/EE2026100616410845068_H.png</ReportImageURI>
+      <ShakemapImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/plotContour/2026/2026068ie.png</ShakemapImageURI>
+      <EarthquakeInfo>
+        <OriginTime>2026-10-06T16:41:08+08:00</OriginTime>
+        <Epicenter>
+          <EpicenterLongitude>120.11</EpicenterLongitude>
+          <EpicenterLatitude>22.29</EpicenterLatitude>
+          <Location>42.4 km SSW of Kaohsiung City Hall</Location>
+        </Epicenter>
+        <FocalDepth>34.1</FocalDepth>
+        <EarthquakeMagnitude>
+          <MagnitudeType>ML</MagnitudeType>
+          <MagnitudeValue>4.5</MagnitudeValue>
+        </EarthquakeMagnitude>
+        <Source>Central Weather Administration, Taiwan</Source>
+      </EarthquakeInfo>
+      <Intensity>
+        <ShakingArea>
+          <AreaDesc>Kaohsiung City area</AreaDesc>
+          <CountyName>Kaohsiung City</CountyName>
+          <AreaIntensity>3</AreaIntensity>
+          <InfoStatus>observe</InfoStatus>
+          <EqStation>
+            <StationName>Kaohsiung City</StationName>
+            <StationID>D106</StationID>
+            <StationLongitude>120.313</StationLongitude>
+            <StationLatitude>22.623</StationLatitude>
+            <EpicenterDistance>42.66</EpicenterDistance>
+            <BackAzimuth>208.95</BackAzimuth>
+            <SeismicIntensity>3</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>4.75</VComponent>
+              <NSComponent>8.97</NSComponent>
+              <EWComponent>9.14</EWComponent>
+              <IntScaleValue>9.58</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.19</VComponent>
+              <NSComponent>0.28</NSComponent>
+              <EWComponent>0.28</EWComponent>
+              <IntScaleValue>0.35</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/3-D106-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Shoushan</StationName>
+            <StationID>WSS</StationID>
+            <StationLongitude>120.262</StationLongitude>
+            <StationLatitude>22.642</StationLatitude>
+            <EpicenterDistance>42.31</EpicenterDistance>
+            <BackAzimuth>201.32</BackAzimuth>
+            <SeismicIntensity>2</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>3.11</VComponent>
+              <NSComponent>2.69</NSComponent>
+              <EWComponent>5.25</EWComponent>
+              <IntScaleValue>5.66</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.10</VComponent>
+              <NSComponent>0.10</NSComponent>
+              <EWComponent>0.16</EWComponent>
+              <IntScaleValue>0.18</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/2-WSS-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Nanzi</StationName>
+            <StationID>KAUH</StationID>
+            <StationLongitude>120.312</StationLongitude>
+            <StationLatitude>22.731</StationLatitude>
+            <EpicenterDistance>53.41</EpicenterDistance>
+            <BackAzimuth>202.66</BackAzimuth>
+            <SeismicIntensity>2</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.89</VComponent>
+              <NSComponent>5.25</NSComponent>
+              <EWComponent>5.50</EWComponent>
+              <IntScaleValue>6.16</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.10</VComponent>
+              <NSComponent>0.35</NSComponent>
+              <EWComponent>0.28</EWComponent>
+              <IntScaleValue>0.36</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/2-KAUH-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Daliao</StationName>
+            <StationID>D090</StationID>
+            <StationLongitude>120.416</StationLongitude>
+            <StationLatitude>22.590</StationLatitude>
+            <EpicenterDistance>45.89</EpicenterDistance>
+            <BackAzimuth>222.89</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.83</VComponent>
+              <NSComponent>1.58</NSComponent>
+              <EWComponent>1.76</EWComponent>
+              <IntScaleValue>1.90</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.05</VComponent>
+              <NSComponent>0.11</NSComponent>
+              <EWComponent>0.09</EWComponent>
+              <IntScaleValue>0.11</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-D090-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Luzhu</StationName>
+            <StationID>D009</StationID>
+            <StationLongitude>120.264</StationLongitude>
+            <StationLatitude>22.868</StationLatitude>
+            <EpicenterDistance>66.33</EpicenterDistance>
+            <BackAzimuth>193.62</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.05</VComponent>
+              <NSComponent>1.80</NSComponent>
+              <EWComponent>1.78</EWComponent>
+              <IntScaleValue>2.03</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.02</VComponent>
+              <NSComponent>0.07</NSComponent>
+              <EWComponent>0.07</EWComponent>
+              <IntScaleValue>0.08</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-D009-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Qishan</StationName>
+            <StationID>SCS</StationID>
+            <StationLongitude>120.494</StationLongitude>
+            <StationLatitude>22.886</StationLatitude>
+            <EpicenterDistance>77.17</EpicenterDistance>
+            <BackAzimuth>210.55</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.77</VComponent>
+              <NSComponent>0.97</NSComponent>
+              <EWComponent>0.77</EWComponent>
+              <IntScaleValue>1.05</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.04</NSComponent>
+              <EWComponent>0.04</EWComponent>
+              <IntScaleValue>0.04</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SCS-E.gif</WaveImageURI>
+          </EqStation>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Pingtung County area</AreaDesc>
+          <CountyName>Pingtung County</CountyName>
+          <AreaIntensity>2</AreaIntensity>
+          <InfoStatus>observe</InfoStatus>
+          <EqStation>
+            <StationName>Liuqiu</StationName>
+            <StationID>WLCH</StationID>
+            <StationLongitude>120.379</StationLongitude>
+            <StationLatitude>22.351</StationLatitude>
+            <EpicenterDistance>28.40</EpicenterDistance>
+            <BackAzimuth>255.46</BackAzimuth>
+            <SeismicIntensity>2</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>4.42</VComponent>
+              <NSComponent>4.23</NSComponent>
+              <EWComponent>2.60</EWComponent>
+              <IntScaleValue>4.28</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.13</VComponent>
+              <NSComponent>0.19</NSComponent>
+              <EWComponent>0.12</EWComponent>
+              <IntScaleValue>0.21</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/2-WLCH-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Pingtung City</StationName>
+            <StationID>SPT</StationID>
+            <StationLongitude>120.496</StationLongitude>
+            <StationLatitude>22.677</StationLatitude>
+            <EpicenterDistance>58.60</EpicenterDistance>
+            <BackAzimuth>222.36</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.10</VComponent>
+              <NSComponent>1.34</NSComponent>
+              <EWComponent>1.36</EWComponent>
+              <IntScaleValue>1.46</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.05</NSComponent>
+              <EWComponent>0.05</EWComponent>
+              <IntScaleValue>0.07</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SPT-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Jiuru</StationName>
+            <StationID>SGL</StationID>
+            <StationLongitude>120.499</StationLongitude>
+            <StationLatitude>22.723</StationLatitude>
+            <EpicenterDistance>62.69</EpicenterDistance>
+            <BackAzimuth>219.35</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.71</VComponent>
+              <NSComponent>1.28</NSComponent>
+              <EWComponent>1.23</EWComponent>
+              <IntScaleValue>1.27</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.08</NSComponent>
+              <EWComponent>0.05</EWComponent>
+              <IntScaleValue>0.08</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SGL-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Sandimen</StationName>
+            <StationID>SSD</StationID>
+            <StationLongitude>120.640</StationLongitude>
+            <StationLatitude>22.744</StationLatitude>
+            <EpicenterDistance>74.34</EpicenterDistance>
+            <BackAzimuth>226.90</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.15</VComponent>
+              <NSComponent>0.60</NSComponent>
+              <EWComponent>0.91</EWComponent>
+              <IntScaleValue>0.96</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.02</VComponent>
+              <NSComponent>0.01</NSComponent>
+              <EWComponent>0.02</EWComponent>
+              <IntScaleValue>0.02</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SSD-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Manzhou</StationName>
+            <StationID>SMS</StationID>
+            <StationLongitude>120.837</StationLongitude>
+            <StationLatitude>22.021</StationLatitude>
+            <EpicenterDistance>80.36</EpicenterDistance>
+            <BackAzimuth>291.53</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.57</VComponent>
+              <NSComponent>1.48</NSComponent>
+              <EWComponent>1.37</EWComponent>
+              <IntScaleValue>1.89</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.02</VComponent>
+              <NSComponent>0.07</NSComponent>
+              <EWComponent>0.06</EWComponent>
+              <IntScaleValue>0.07</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SMS-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Nanwan</StationName>
+            <StationID>SNW</StationID>
+            <StationLongitude>120.750</StationLongitude>
+            <StationLatitude>21.960</StationLatitude>
+            <EpicenterDistance>75.05</EpicenterDistance>
+            <BackAzimuth>298.85</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+          </EqStation>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Tainan City area</AreaDesc>
+          <CountyName>Tainan City</CountyName>
+          <AreaIntensity>1</AreaIntensity>
+          <InfoStatus>observe</InfoStatus>
+          <EqStation>
+            <StationName>Xinhua</StationName>
+            <StationID>SHH</StationID>
+            <StationLongitude>120.348</StationLongitude>
+            <StationLatitude>23.021</StationLatitude>
+            <EpicenterDistance>85.04</EpicenterDistance>
+            <BackAzimuth>196.54</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.96</VComponent>
+              <NSComponent>1.93</NSComponent>
+              <EWComponent>1.87</EWComponent>
+              <IntScaleValue>2.19</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.06</NSComponent>
+              <EWComponent>0.07</EWComponent>
+              <IntScaleValue>0.08</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SHH-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Shanhua</StationName>
+            <StationID>SSH</StationID>
+            <StationLongitude>120.288</StationLongitude>
+            <StationLatitude>23.136</StationLatitude>
+            <EpicenterDistance>95.98</EpicenterDistance>
+            <BackAzimuth>190.85</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.28</VComponent>
+              <NSComponent>2.12</NSComponent>
+              <EWComponent>1.80</EWComponent>
+              <IntScaleValue>2.25</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.10</NSComponent>
+              <EWComponent>0.07</EWComponent>
+              <IntScaleValue>0.10</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SSH-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Jiali</StationName>
+            <StationID>SCL</StationID>
+            <StationLongitude>120.202</StationLongitude>
+            <StationLatitude>23.174</StationLatitude>
+            <EpicenterDistance>98.93</EpicenterDistance>
+            <BackAzimuth>185.33</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.87</VComponent>
+              <NSComponent>1.19</NSComponent>
+              <EWComponent>1.47</EWComponent>
+              <IntScaleValue>1.51</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.02</VComponent>
+              <NSComponent>0.05</NSComponent>
+              <EWComponent>0.05</EWComponent>
+              <IntScaleValue>0.05</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-SCL-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Baihe</StationName>
+            <StationID>C015</StationID>
+            <StationLongitude>120.414</StationLongitude>
+            <StationLatitude>23.353</StationLatitude>
+            <EpicenterDistance>122.27</EpicenterDistance>
+            <BackAzimuth>194.69</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.34</VComponent>
+              <NSComponent>1.10</NSComponent>
+              <EWComponent>1.04</EWComponent>
+              <IntScaleValue>1.40</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.04</VComponent>
+              <NSComponent>0.04</NSComponent>
+              <EWComponent>0.04</EWComponent>
+              <IntScaleValue>0.05</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-C015-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Tainan City</StationName>
+            <StationID>TAI</StationID>
+            <StationLongitude>120.205</StationLongitude>
+            <StationLatitude>22.993</StationLatitude>
+            <EpicenterDistance>78.98</EpicenterDistance>
+            <BackAzimuth>186.90</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>1.26</VComponent>
+              <NSComponent>1.53</NSComponent>
+              <EWComponent>1.29</EWComponent>
+              <IntScaleValue>1.73</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.04</NSComponent>
+              <EWComponent>0.04</EWComponent>
+              <IntScaleValue>0.05</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-TAI-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Yongkang</StationName>
+            <StationID>TAI1</StationID>
+            <StationLongitude>120.237</StationLongitude>
+            <StationLatitude>23.038</StationLatitude>
+            <EpicenterDistance>84.35</EpicenterDistance>
+            <BackAzimuth>188.71</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.87</VComponent>
+              <NSComponent>1.58</NSComponent>
+              <EWComponent>1.32</EWComponent>
+              <IntScaleValue>1.77</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.03</VComponent>
+              <NSComponent>0.07</NSComponent>
+              <EWComponent>0.05</EWComponent>
+              <IntScaleValue>0.07</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-TAI1-E.gif</WaveImageURI>
+          </EqStation>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Chiayi County area</AreaDesc>
+          <CountyName>Chiayi County</CountyName>
+          <AreaIntensity>1</AreaIntensity>
+          <InfoStatus>observe</InfoStatus>
+          <EqStation>
+            <StationName>Taibao City</StationName>
+            <StationID>CHY1</StationID>
+            <StationLongitude>120.294</StationLongitude>
+            <StationLatitude>23.457</StationLatitude>
+            <EpicenterDistance>131.19</EpicenterDistance>
+            <BackAzimuth>188.16</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.47</VComponent>
+              <NSComponent>0.96</NSComponent>
+              <EWComponent>1.08</EWComponent>
+              <IntScaleValue>1.09</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.01</VComponent>
+              <NSComponent>0.04</NSComponent>
+              <EWComponent>0.03</EWComponent>
+              <IntScaleValue>0.04</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-CHY1-E.gif</WaveImageURI>
+          </EqStation>
+          <EqStation>
+            <StationName>Fanlu</StationName>
+            <StationID>WCKO</StationID>
+            <StationLongitude>120.605</StationLongitude>
+            <StationLatitude>23.439</StationLatitude>
+            <EpicenterDistance>137.43</EpicenterDistance>
+            <BackAzimuth>201.57</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.38</VComponent>
+              <NSComponent>1.12</NSComponent>
+              <EWComponent>1.16</EWComponent>
+              <IntScaleValue>1.17</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.01</VComponent>
+              <NSComponent>0.04</NSComponent>
+              <EWComponent>0.05</EWComponent>
+              <IntScaleValue>0.05</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-WCKO-E.gif</WaveImageURI>
+          </EqStation>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Changhua County area</AreaDesc>
+          <CountyName>Changhua County</CountyName>
+          <AreaIntensity>1</AreaIntensity>
+          <InfoStatus>observe</InfoStatus>
+          <EqStation>
+            <StationName>Changhua City</StationName>
+            <StationID>WCHH</StationID>
+            <StationLongitude>120.558</StationLongitude>
+            <StationLatitude>24.079</StationLatitude>
+            <EpicenterDistance>204.09</EpicenterDistance>
+            <BackAzimuth>192.93</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.52</VComponent>
+              <NSComponent>0.99</NSComponent>
+              <EWComponent>0.98</EWComponent>
+              <IntScaleValue>0.98</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.01</VComponent>
+              <NSComponent>0.02</NSComponent>
+              <EWComponent>0.03</EWComponent>
+              <IntScaleValue>0.03</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-WCHH-E.gif</WaveImageURI>
+          </EqStation>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Taichung City area</AreaDesc>
+          <CountyName>Taichung City</CountyName>
+          <AreaIntensity>1</AreaIntensity>
+          <InfoStatus>observe</InfoStatus>
+          <EqStation>
+            <StationName>Wufeng</StationName>
+            <StationID>B219</StationID>
+            <StationLongitude>120.700</StationLongitude>
+            <StationLatitude>24.042</StationLatitude>
+            <EpicenterDistance>203.83</EpicenterDistance>
+            <BackAzimuth>197.15</BackAzimuth>
+            <SeismicIntensity>1</SeismicIntensity>
+            <pga unit="gal">
+              <VComponent>0.49</VComponent>
+              <NSComponent>0.70</NSComponent>
+              <EWComponent>0.89</EWComponent>
+              <IntScaleValue>0.97</IntScaleValue>
+            </pga>
+            <pgv unit="kine">
+              <VComponent>0.02</VComponent>
+              <NSComponent>0.02</NSComponent>
+              <EWComponent>0.03</EWComponent>
+              <IntScaleValue>0.03</IntScaleValue>
+            </pgv>
+            <InfoStatus>observe</InfoStatus>
+            <WaveImageURI>https://scweb.cwa.gov.tw/webdata/drawTrace/outcome/2026/2026068/1-B219-E.gif</WaveImageURI>
+          </EqStation>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Intensity 3 area</AreaDesc>
+          <CountyName>Kaohsiung City</CountyName>
+          <AreaIntensity>3</AreaIntensity>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Intensity 2 area</AreaDesc>
+          <CountyName>Pingtung County</CountyName>
+          <AreaIntensity>2</AreaIntensity>
+        </ShakingArea>
+        <ShakingArea>
+          <AreaDesc>Intensity 1 area</AreaDesc>
+          <CountyName>Tainan City, Chiayi County, Changhua County, Taichung City</CountyName>
+          <AreaIntensity>1</AreaIntensity>
+        </ShakingArea>
+      </Intensity>
+    </Earthquake>
+  </dataset>
+</cwaopendata>
