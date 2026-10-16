@@ -32,6 +32,24 @@ def test_gate_edges(dt_s, dlat_km, matched):
     assert (len(match(a, b).pairs) == 1) is matched
 
 
+def test_gate_edges_are_exact_for_millisecond_times():
+    from datetime import datetime, timezone
+
+    from crosscheck.model import QuakeRecord
+
+    def at(source, t):
+        return QuakeRecord(source, f"{source}-t", source, t, 24.0, 121.5, 10.0, 4.0, "ml")
+
+    a = at("cwa", datetime(2017, 3, 23, 20, 43, 29, 141000, tzinfo=timezone.utc))
+    b = at("usgs", datetime(2017, 3, 23, 20, 43, 27, 120000, tzinfo=timezone.utc))
+    assert len(match([a], [b], MatchConfig(time_window_s=2.021)).pairs) == 1  # dt is exactly the window
+    # Exactly 16 s apart where float timestamps cross 2**30 s (2004-01-10T13:37:04Z).
+    b = at("usgs", datetime(2004, 1, 10, 13, 36, 55, 123000, tzinfo=timezone.utc))
+    a = at("cwa", datetime(2004, 1, 10, 13, 37, 11, 123000, tzinfo=timezone.utc))
+    (p,) = match([a], [b]).pairs
+    assert p.dt_s == 16.0
+
+
 def test_magnitude_is_not_a_gate():
     a = [rec("cwa", "a", mag=6.5, mag_type="ml")]
     b = [rec("usgs", "b", mag=5.6, mag_type="mww")]

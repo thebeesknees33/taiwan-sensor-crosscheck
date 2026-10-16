@@ -41,15 +41,24 @@ def test_2015_summary_and_report(run_2015):
     assert s["all_pairs"]["pairs"] == 4
     assert s["ambiguous_pairs"] == 0
     assert s["all_pairs"]["dist_km"]["median"] == pytest.approx(9.46, abs=0.01)
+    assert s["time_resolution"] == {"a": "1 s", "b": "1 ms"}
+    # Coverage comes from what each file declares: CWA's CatalogInfo and the
+    # USGS query URL (which ended at 2015-12-31T00:00Z).
+    cov = s["coverage"]
+    assert cov["declared"] and cov["inferred_inputs"] == []
+    assert cov["start"].startswith("2015-01-01T00:00:00") and cov["end"].startswith("2015-12-31T00:00:00")
     comp = s["completeness"]
     assert comp["b"]["match_rate"] == 1.0
     # One CWA ML>=6 quake has no partner because the USGS file was an M>=6
     # query; the report must warn about that instead of calling it a miss.
     assert comp["a"]["unmatched"] == ["cwa:cwa-catalog:20150323T101352"]
-    assert [w["input"] for w in comp["warnings"]] == ["b"]
+    assert [(w["kind"], w["input"], w["suggest_min_mag"]) for w in comp["warnings"]] == [("declared-floor", "b", 6.5)]
     md = (run_2015 / "report.md").read_text(encoding="utf-8")
-    assert "CWA minus USGS" in md and "Warning" in md
+    assert "CWA minus USGS" in md and "Warning" in md and "## Pairs" in md
+    assert "whole seconds" in md
     assert len(s["sweep"]) == 12
+    assert "Open Government Data License" in s["attribution"]
+    assert (run_2015 / "ATTRIBUTION.txt").exists()
 
 
 def test_cot_export_from_cli(run_2015, tmp_path, fixtures):

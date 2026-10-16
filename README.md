@@ -16,7 +16,7 @@ Later pairs, once the method works: aircraft (OpenSky vs adsb.lol), ships (AIS f
 
 ## Output
 
-Collectors normalize each source into a common record. Optionally they emit Cursor-on-Target (CoT) XML so the data can be viewed in ATAK/WinTAK through a TAK server such as OpenTAKServer. Nothing goes over the network to a TAK server unless you explicitly ask it to.
+Collectors normalize each source into a common record. Optionally they emit Cursor-on-Target (CoT) XML so the data can be viewed in ATAK/WinTAK, either as files or through a TAK server such as OpenTAKServer. Nothing goes over the network to a TAK server unless you explicitly ask it to.
 
 ## Scope
 
@@ -43,7 +43,13 @@ crosscheck fetch usgs --start 2026-01-01 --end 2026-10-01 --out out/usgs-2026.js
 crosscheck compare out/cwa-2026.jsonl out/usgs-2026.jsonl --min-mag 4.5 --sweep
 ```
 
-The report goes to `out/compare/report.md`, with per-pair rows in `pairs.csv` and the numbers in `summary.json`. Raw responses are kept under `out/raw/` so every result can be reproduced.
+If the report warns about a magnitude floor, re-run `compare` with the `--min-mag` it suggests.
+
+What gets written:
+
+- **The report** goes to `out/compare/report.md`, with per-pair rows in `pairs.csv` and the numbers in `summary.json`.
+- **Coverage sidecars:** each `.jsonl` file gets a `.info.json` recording the time span, region and minimum magnitude the data covers (from the USGS query, or from CWA's own catalog metadata). Completeness is judged only where both inputs' coverage overlaps.
+- **Raw responses** are kept under `out/raw/` so every result can be reproduced. `crosscheck parse` can re-read them; it skips the sidecar files.
 
 Other commands:
 
@@ -55,10 +61,17 @@ crosscheck cot out/cwa-2026.jsonl                   # CoT XML files for ATAK/Win
 crosscheck cot out/cwa-2026.jsonl --send localhost:8088   # also stream to a local OpenTAKServer
 ```
 
-Method: [docs/METHOD.md](docs/METHOD.md). Sources and format traps: [docs/SOURCES.md](docs/SOURCES.md). Data attribution: [NOTICE.md](NOTICE.md).
+About `--send`: it streams over plain TCP, so use it only on a trusted local network. The behaviour is designed from OpenTAKServer 1.7.13's source code but has **not yet been tested against a running server**:
+- the gateway announces itself first;
+- events go out paced, about 30 s for 1,500 markers;
+- the connection is closed cleanly.
+
+The command reports whether the server confirmed it read everything. Even then, OpenTAKServer 1.7.13 can drop an event that arrives split across two network reads; pacing makes that unlikely, not impossible.
+
+Method: [docs/METHOD.md](docs/METHOD.md). Sources and format traps: [docs/SOURCES.md](docs/SOURCES.md). Data attribution: [NOTICE.md](NOTICE.md). Reports and outputs built from CWA data carry CWA's required attribution automatically.
 
 ## Status
 
-- Earthquake collectors (USGS, CWA reports and catalog), matcher, metrics, report and CoT export are working, with tests on real saved data.
-- The first real comparison (2015, 4 quakes) ran end to end; see docs/METHOD.md.
-- Next: a full live comparison (1990–2026), a continuous collector for latency, then aircraft and ship pairs.
+- Earthquake collectors (USGS, CWA reports and catalog), matcher, metrics, report and CoT file export are working, with tests on real saved data.
+- The first real comparison (2015, 4 quakes) ran end to end. It is a smoke test, not a result; see docs/METHOD.md.
+- Next: a full live comparison (1990–2026), a test against a real OpenTAKServer, a continuous collector for latency, then aircraft and ship pairs.

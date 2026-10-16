@@ -99,16 +99,105 @@ def test_catalog_xml_with_leading_spaces(fixtures):
     assert r.extra["erh"] == 0.2 and r.extra["quality"] == "C"
 
 
-def test_catalog_zip_year_filter(fixtures, tmp_path):
+def make_catalog_zip(fixtures, path):
     import zipfile
 
     src = (fixtures / "cwa" / "CWA-EQ-Catalog-2015.xml").read_bytes()
-    zpath = tmp_path / "E-A0073-002.zip"
-    with zipfile.ZipFile(zpath, "w") as z:
+    with zipfile.ZipFile(path, "w") as z:
         z.writestr("CWA-EQ-Catalog-2015.xml", src)
-        z.writestr("file.csv", "CWA-EQ-Catalog-2015.xml,2015\n")
+        z.writestr("file.csv", "CWA-EQ-Catalog-2015.xml,2015\n")  # hand-made index, like the real zip's
+    return path
+
+
+def test_catalog_zip_year_filter(fixtures, tmp_path):
+    zpath = make_catalog_zip(fixtures, tmp_path / "E-A0073-002.zip")
     assert len(cwa.parse_file(zpath)) == 1626
     assert cwa.parse_catalog_zip(zpath.read_bytes(), years={2016}) == []
+
+
+def test_catalog_declared_coverage(fixtures):
+    segs = []
+    cwa.parse_file(fixtures / "cwa" / "CWA-EQ-Catalog-2015.xml", segs)
+    (s,) = segs
+    assert s.label == "CWA-EQ-Catalog-2015"
+    assert s.start == utc(2015, 1, 1) and s.end == utc(2016, 1, 1)  # CatalogInfo, a UTC year
+    assert s.bbox == (118.0, 20.0, 124.0, 27.0) and s.min_mag == 3.0
+    segs = []
+    cwa.parse_file(fixtures / "cwa" / "E-A0073-001.json", segs)
+    assert (segs[0].start, segs[0].end) == (utc(2026, 1, 1), utc(2026, 10, 1))
+
+
+def test_report_product_from_content_so_copies_collapse(fixtures, tmp_path):
+    # The same significant report from the zip and from a standalone (unzipped)
+    # XML must get the same key, and a renamed zip must still be labelled.
+    from crosscheck.cli import _dedupe
+
+    zrecs = cwa.parse_file(fixtures / "cwa" / "E-A0015-001.zip")
+    (xml,) = cwa.parse_file(fixtures / "cwa" / "CWA-EQ115068-2026-1006-164108-OD_eng.xml")
+    assert xml.product == "cwa-report-significant"
+    assert len(_dedupe(zrecs + [xml])) == 16
+    renamed = tmp_path / "small-reports-saved.zip"
+    renamed.write_bytes((fixtures / "cwa" / "E-A0016-001.zip").read_bytes())
+    assert {r.product for r in cwa.parse_file(renamed)} == {"cwa-report-small"}
+
+
+def test_unsupported_files_raise_with_their_name(tmp_path):
+    other = tmp_path / "E-A0015-005.json"  # a CWA product we don't parse
+    other.write_text('{"cwaopendata": {"dataid": "E-A0015-005", "Dataset": {"Earthquake": {}}}}', encoding="utf-8")
+    with pytest.raises(ValueError, match="E-A0015-005.json.*unsupported CWA JSON product"):
+        cwa.parse_file(other)
+    meta = tmp_path / "x.zip.meta.json"  # the raw-response sidecar this tool writes
+    meta.write_text('{"url": "https://example.test", "status": 200}', encoding="utf-8")
+    with pytest.raises(ValueError, match="x.zip.meta.json"):
+        cwa.parse_file(meta)
+    xml = tmp_path / "other.xml"
+    xml.write_text('<cwaopendata xmlns="urn:cwa:gov:tw:cwacommon:0.1"><dataid>E-A0073-003</dataid><Dataset/></cwaopendata>')
+    with pytest.raises(ValueError, match="E-A0073-003"):
+        cwa.parse_file(xml)
+
+
+class FakeS3:
+    """Serves the real catalog files under their S3 names."""
+
+    def __init__(self, files):
+        self.files = files
+        self.fetched = []
+
+    def get(self, url, params=None, headers=None, timeout=None):
+        name = url.rsplit("/", 1)[-1]
+        self.fetched.append(name)
+
+        class R:
+            status_code = 200
+            headers = {}
+            content = self.files[name]
+
+            def raise_for_status(self):
+                pass
+
+        R.url = url
+        return R()
+
+
+def test_fetch_catalog_years_use_utc_and_both_files_around_new_year(fixtures, tmp_path):
+    files = {
+        "E-A0073-002.zip": make_catalog_zip(fixtures, tmp_path / "z.zip").read_bytes(),  # 2015 only
+        "E-A0073-001.json": (fixtures / "cwa" / "E-A0073-001.json").read_bytes(),  # 2026
+    }
+    # 2026-12-31T20:00Z is already 2027 in Taipei, but catalog years are UTC years.
+    s3 = FakeS3(files)
+    segs = []
+    recs = cwa.fetch_catalog({2026}, session=s3, segments=segs, now=utc(2026, 12, 31, 20))
+    assert len(recs) == 1507 and "E-A0073-001.json" in s3.fetched
+    assert segs and all(s.start.year == 2026 for s in segs)
+    # Early January: last year may not be in the zip yet, so both files are read.
+    s3 = FakeS3(files)
+    recs = cwa.fetch_catalog({2026}, session=s3, now=utc(2027, 1, 5))
+    assert s3.fetched == ["E-A0073-002.zip", "E-A0073-001.json"] and len(recs) == 1507
+    # Old years only need the zip; the zip copy wins over a duplicate.
+    s3 = FakeS3(files)
+    recs = cwa.fetch_catalog({2015}, session=s3, now=utc(2026, 10, 10))
+    assert s3.fetched == ["E-A0073-002.zip"] and len(recs) == 1626
 
 
 def test_rest_fetch_requires_key_and_redacts_it(monkeypatch, tmp_path, fixtures):

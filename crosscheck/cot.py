@@ -12,15 +12,35 @@ precision. Choices (sources in docs/METHOD.md):
 - Times are UTC with a trailing "Z"; OpenTAKServer rejects other offsets.
 - One uid per source report, so USGS and CWA markers for the same quake sit
   side by side and a re-sent report replaces its old marker.
-- Sending is opt-in. OpenTAKServer's plaintext TCP CoT port is 8088
-  (8087 is its UDP port, off by default).
+
+Streaming to a TAK server is opt-in (``send_tcp``). What it does, and why,
+based on reading the OpenTAKServer 1.7.13 source (not yet tested against a
+running server):
+- It first sends a gateway announcement. OpenTAKServer treats the first
+  event on a connection that carries <contact> as the connecting device,
+  and when the connection closes it broadcasts a delete-style message for
+  that device's uid. Announcing the gateway first keeps a quake marker
+  from being taken for the device. The announcement uses type "t-x-c-t-r",
+  because OpenTAKServer answers exactly "t-x-c-t" as a ping and never
+  registers it, and it is addressed to the gateway itself (<marti><dest>)
+  so the server does not broadcast it to other clients.
+- Nagle's algorithm is off and sends are paced: OpenTAKServer up to 1.7.13
+  drops any event that is split across two network reads, and pacing keeps
+  each read to whole events. This lowers the risk; it cannot rule it out
+  if the server falls far behind.
+- A background thread reads everything the server sends (it echoes traffic
+  back), and the connection is closed gracefully. Closing with unread data
+  would reset the connection and discard events still in flight.
 """
 
 from __future__ import annotations
 
 import re
 import socket
+import threading
+import time
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Optional
@@ -31,6 +51,9 @@ UNKNOWN = "9999999.0"
 XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>\n'
 DEFAULT_TYPE = "b-m-p-s-m"
 GATEWAY_UID = "taiwan-sensor-crosscheck-gateway"
+GATEWAY_CALLSIGN = "taiwan-sensor-crosscheck"
+PRESENCE_TYPE = "t-x-c-t-r"  # anything but exactly "t-x-c-t", which OpenTAKServer swallows as a ping
+CWA_REMARK = "Data: CWA Taiwan, Open Government Data License v1.0 (https://data.gov.tw/license)"
 
 # Signed 32-bit ARGB, the form ATAK writes in <color argb>.
 COLORS = {"usgs": -32768, "cwa": -16776961}  # 0xFFFF8000 orange, 0xFF0000FF blue
@@ -42,7 +65,7 @@ def _ts(t: datetime) -> str:
 
 
 def uid_for(r: QuakeRecord) -> str:
-    return re.sub(r"[^A-Za-z0-9._:-]", "_", f"crosscheck-{r.product}-{r.source_id}")
+    return re.sub(r"[^A-Za-z0-9._-]", "_", f"crosscheck-{r.product}-{r.source_id}")
 
 
 def event_element(
@@ -78,7 +101,9 @@ def event_element(
     remarks = ET.SubElement(detail, "remarks", {"source": f"crosscheck/{r.product}"})
     remarks.text = (
         f"{r.source.upper()} {r.product} {r.source_id} | origin {_ts(r.origin_time)} | "
-        f"{mag} | depth {depth} | {r.lat}, {r.lon}" + (f" | {r.url}" if r.url else "")
+        f"{mag} | depth {depth} | {r.lat}, {r.lon}"
+        + (f" | {r.url}" if r.url else "")
+        + (f" | {CWA_REMARK}" if r.source == "cwa" else "")
     )
     attrs = {
         "source": r.source,
@@ -98,21 +123,15 @@ def event_element(
     return ev
 
 
-def presence_element(now: Optional[datetime] = None, uid: str = GATEWAY_UID) -> ET.Element:
-    """Announce the gateway first, so OpenTAKServer ties the connection to it.
-
-    OpenTAKServer takes the uid of the first event with a <contact> as the
-    connection's device, and broadcasts a disconnect for that uid when the
-    socket closes. Sending this first keeps that away from quake markers.
-    (Inferred from OpenTAKServer source; not yet tested against a server.)
-    """
+def presence_element(now: Optional[datetime] = None) -> ET.Element:
+    """Gateway announcement sent before any marker (see the module docstring)."""
     now = now or datetime.now(timezone.utc)
     ev = ET.Element(
         "event",
         {
             "version": "2.0",
-            "uid": uid,
-            "type": "t-x-c-t",
+            "uid": GATEWAY_UID,
+            "type": PRESENCE_TYPE,
             "how": "m-r",
             "time": _ts(now),
             "start": _ts(now),
@@ -121,7 +140,9 @@ def presence_element(now: Optional[datetime] = None, uid: str = GATEWAY_UID) -> 
     )
     ET.SubElement(ev, "point", {"lat": "0.0", "lon": "0.0", "hae": UNKNOWN, "ce": UNKNOWN, "le": UNKNOWN})
     detail = ET.SubElement(ev, "detail")
-    ET.SubElement(detail, "contact", {"callsign": uid})
+    ET.SubElement(detail, "contact", {"callsign": GATEWAY_CALLSIGN})
+    marti = ET.SubElement(detail, "marti")
+    ET.SubElement(marti, "dest", {"callsign": GATEWAY_CALLSIGN})
     return ev
 
 
@@ -139,20 +160,64 @@ def write_files(records: Iterable[QuakeRecord], out_dir: Path, **kw) -> int:
     return n
 
 
+@dataclass
+class SendResult:
+    written: int  # marker events written to the socket
+    confirmed: bool  # the server read everything we sent and closed the connection
+    received_bytes: int  # what the server sent back (echoes, other clients' traffic)
+
+
 def send_tcp(
     records: Iterable[QuakeRecord],
     host: str,
     port: int = 8088,
     timeout: float = 10.0,
+    interval_s: float = 0.02,
     announce: bool = True,
+    close_wait_s: float = 15.0,
     **kw,
-) -> int:
-    """Stream markers to a TAK server over plaintext TCP. Use only on a trusted local network."""
-    n = 0
+) -> SendResult:
+    """Stream markers to a TAK server over plaintext TCP. Use only on a trusted local network.
+
+    ``confirmed`` is True when, after we finished sending and closed our side,
+    the server closed its side too. A server only sees our close after
+    reading everything before it, so that confirms the server received every
+    byte. It cannot confirm the server stored every marker.
+    """
+    received = 0
+    eof = threading.Event()
+    stop = threading.Event()
+    written = 0
     with socket.create_connection((host, port), timeout=timeout) as s:
-        if announce:
-            s.sendall(to_message(presence_element()))
-        for r in records:
-            s.sendall(to_message(event_element(r, **kw)))
-            n += 1
-    return n
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+        def drain() -> None:
+            nonlocal received
+            while not stop.is_set():
+                try:
+                    chunk = s.recv(65536)
+                except socket.timeout:
+                    continue
+                except OSError:
+                    return
+                if not chunk:
+                    eof.set()
+                    return
+                received += len(chunk)
+
+        reader = threading.Thread(target=drain, name="cot-drain", daemon=True)
+        reader.start()
+        try:
+            if announce:
+                s.sendall(to_message(presence_element()))
+            for r in records:
+                if announce or written:
+                    time.sleep(interval_s)
+                s.sendall(to_message(event_element(r, **kw)))
+                written += 1
+            s.shutdown(socket.SHUT_WR)
+            eof.wait(close_wait_s)
+        finally:
+            stop.set()
+            reader.join(timeout + 1)
+    return SendResult(written, eof.is_set(), received)

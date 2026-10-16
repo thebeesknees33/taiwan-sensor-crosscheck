@@ -122,7 +122,27 @@ def test_fetch_passes_bbox_and_min_mag(monkeypatch):
     sess = FakeSession([], max_allowed=20000)
     assert usgs.fetch_events(datetime(2026, 1, 1), datetime(2026, 2, 1), min_mag=4.5, session=sess) == []
     params = sess.calls[0][1]
+    # Default download box: CWA's declared region plus 1 degree on every side.
     assert (params["minlongitude"], params["minlatitude"], params["maxlongitude"], params["maxlatitude"]) == (
-        118.0, 20.0, 124.0, 27.0,
+        117.0, 19.0, 125.0, 28.0,
     )
     assert params["minmagnitude"] == 4.5
+
+
+def test_coverage_from_saved_query(fixtures):
+    # The 2015 file's metadata.url is ...query?format=geojson&starttime=2015-01-01&endtime=2015-12-31&minmagnitude=6
+    cov = usgs.coverage_from_geojson((fixtures / "usgs" / "fdsn-2015-m6plus.geojson").read_bytes())
+    (seg,) = cov.segments
+    assert seg.start == datetime(2015, 1, 1, tzinfo=timezone.utc)
+    assert seg.end == datetime(2015, 12, 31, tzinfo=timezone.utc)  # endtime=2015-12-31 means midnight
+    assert seg.bbox == (-180.0, -90.0, 180.0, 90.0)  # global query
+    assert seg.min_mag == 6.0
+
+
+def test_no_coverage_for_feeds_and_single_events(fixtures):
+    assert usgs.coverage_from_geojson((fixtures / "usgs" / "summary-all-day-2018.geojson").read_bytes()) is None
+    doc = json.loads((fixtures / "usgs" / "fdsn-2015-m6plus.geojson").read_text())
+    assert usgs.coverage_from_geojson(doc["features"][0]) is None
+    radius = {"metadata": {"url": "https://earthquake.usgs.gov/fdsnws/event/1/query?starttime=2020-01-01"
+                                  "&endtime=2020-02-01&latitude=24&longitude=121&maxradiuskm=100"}}
+    assert usgs.coverage_from_geojson(radius) is None

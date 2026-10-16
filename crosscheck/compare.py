@@ -16,15 +16,18 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Optional, Sequence
 
+from .coverage import GLOBAL_BBOX, Coverage, Segment, inferred
 from .geo import bearing_deg, offset_en_km
 from .match import MatchResult, Pair
 from .model import QuakeRecord
 
 SHALLOW_MAX_KM = 35.0  # shallow/deep split used by Guan et al. (2020) for Taiwan ML
-# Magnitude scales for the same quake can differ by ~0.5 (Taiwan ML vs Mw for
-# deep events), so an input whose smallest event is within this of the
-# completeness cutoff may have been truncated near it.
-TRUNCATION_MARGIN = 0.5
+# Two magnitude scales can rate the same quake differently: Guan et al. (2020)
+# report Taiwan ML around 0.2 above Mw for shallow quakes and around 0.5 above
+# it for deep quakes with ML > 6. Near a magnitude floor, events within this
+# margin may lack a partner because of the scale difference alone.
+SCALE_MARGIN = 0.5
+LIST_LIMIT = 50  # unmatched keys listed per side in summary.json
 
 
 @dataclass
@@ -92,42 +95,56 @@ def describe(values: Sequence[Optional[float]]) -> dict:
     }
 
 
-@dataclass
-class Coverage:
-    """Where and when both catalogs are expected to report. Completeness is only judged inside it."""
-
-    start: datetime
-    end: datetime
-    bbox: tuple[float, float, float, float]  # lon_min, lat_min, lon_max, lat_max
-
-    def contains(self, r: QuakeRecord) -> bool:
-        lon_min, lat_min, lon_max, lat_max = self.bbox
-        return (
-            self.start <= r.origin_time <= self.end
-            and lat_min <= r.lat <= lat_max
-            and lon_min <= r.lon <= lon_max
-        )
+def time_resolution(records: Sequence[QuakeRecord]) -> Optional[str]:
+    """Coarsest unit every origin time is a whole multiple of: '1 s', '1 ms' or 'sub-ms'."""
+    if not records:
+        return None
+    if all(r.origin_time.microsecond == 0 for r in records):
+        return "1 s"
+    if all(r.origin_time.microsecond % 1000 == 0 for r in records):
+        return "1 ms"
+    return "sub-ms"
 
 
-def overlap_coverage(
+# ---------------------------------------------------------------- coverage
+
+
+def resolve_coverage(
     a: Sequence[QuakeRecord],
     b: Sequence[QuakeRecord],
-    bbox: tuple[float, float, float, float],
-) -> Optional[Coverage]:
-    """The time span both inputs cover, inside bbox. None if they don't overlap."""
-    if not a or not b:
-        return None
-    start = max(min(r.origin_time for r in a), min(r.origin_time for r in b))
-    end = min(max(r.origin_time for r in a), max(r.origin_time for r in b))
-    if start > end:
-        return None
-    return Coverage(start, end, bbox)
+    cov_a: Optional[Coverage],
+    cov_b: Optional[Coverage],
+    fallback_bbox: tuple[float, float, float, float],
+    bbox: Optional[tuple[float, float, float, float]] = None,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+) -> tuple[Optional[Coverage], Optional[Coverage], Optional[Coverage]]:
+    """Coverage of A, of B, and where both overlap (optionally narrowed by the user).
+
+    A missing coverage is inferred from that input's first and last events
+    inside ``fallback_bbox`` and marked as not declared.
+    """
+    region = bbox or fallback_bbox
+    cov_a = cov_a if cov_a is not None else inferred(a, region, "A")
+    cov_b = cov_b if cov_b is not None else inferred(b, region, "B")
+    if cov_a is None or cov_b is None:
+        return cov_a, cov_b, None
+    joint = cov_a.intersect(cov_b)
+    if joint.segments and (bbox or start or end):
+        user = Segment(start or joint.start, end or joint.end, bbox or GLOBAL_BBOX, None, "command line")
+        joint = joint.intersect(Coverage([user]))
+    return cov_a, cov_b, joint if joint.segments else None
+
+
+# ---------------------------------------------------------------- summary
 
 
 def summarize(
     result: MatchResult,
-    coverage: Optional[Coverage],
+    joint: Optional[Coverage],
     min_mag: Optional[float] = None,
+    cov_a: Optional[Coverage] = None,
+    cov_b: Optional[Coverage] = None,
 ) -> dict:
     metrics = [pair_metrics(p) for p in result.pairs]
     unambiguous = [m for m in metrics if not m.ambiguous]
@@ -160,6 +177,8 @@ def summarize(
             return None
         return "shallow" if m.a_depth_km <= SHALLOW_MAX_KM else "deep"
 
+    a_all = [p.a for p in result.pairs] + result.unmatched_a
+    b_all = [p.b for p in result.pairs] + result.unmatched_b
     summary = {
         "config": asdict(result.config),
         "all_pairs": block(metrics),
@@ -168,54 +187,94 @@ def summarize(
             cls: block([m for m in metrics if depth_class(m) == cls]) for cls in ("shallow", "deep")
         },
         "ambiguous_pairs": len(metrics) - len(unambiguous),
+        "time_resolution": {"a": time_resolution(a_all), "b": time_resolution(b_all)},
     }
-    if coverage is not None:
+    if joint is not None:
         summary["coverage"] = {
-            "start": coverage.start.isoformat(),
-            "end": coverage.end.isoformat(),
-            "bbox": list(coverage.bbox),
+            "declared": joint.declared,
+            "inferred_inputs": [n for n, c in (("a", cov_a), ("b", cov_b)) if c is not None and not c.declared],
+            "start": joint.start.isoformat() if joint.start else None,
+            "end": joint.end.isoformat() if joint.end else None,
+            "segments": [s.to_dict() for s in joint.segments],
         }
-        summary["completeness"] = _completeness(result, coverage, min_mag)
+        summary["completeness"] = _completeness(result, joint, min_mag, cov_a, cov_b)
     return summary
 
 
-def _completeness(result: MatchResult, cov: Coverage, min_mag: Optional[float]) -> dict:
-    def side(matched: list[QuakeRecord], unmatched: list[QuakeRecord]) -> dict:
-        def keep(r: QuakeRecord) -> bool:
-            if not cov.contains(r):
-                return False
-            return min_mag is None or (r.mag is not None and r.mag >= min_mag)
+def _completeness(
+    result: MatchResult,
+    joint: Coverage,
+    min_mag: Optional[float],
+    cov_a: Optional[Coverage],
+    cov_b: Optional[Coverage],
+) -> dict:
+    def above(r: QuakeRecord) -> bool:
+        return min_mag is None or (r.mag is not None and r.mag >= min_mag)
 
-        m = [r for r in matched if keep(r)]
-        u = [r for r in unmatched if keep(r)]
+    def side(pairs: list[tuple[QuakeRecord, QuakeRecord]], unmatched: list[QuakeRecord]) -> dict:
+        # A pair counts on both sides when either member is inside the overlap,
+        # so a sub-second edge can't split a match.
+        m = [r for r, partner in pairs if (joint.contains(r) or joint.contains(partner)) and above(r)]
+        u = [r for r in unmatched if joint.contains(r) and above(r)]
+        outside = [r for r in unmatched if not joint.contains(r) and above(r)]
+        inside_mags = [r.mag for r, _ in pairs if joint.contains(r) and r.mag is not None]
+        inside_mags += [r.mag for r in unmatched if joint.contains(r) and r.mag is not None]
         total = len(m) + len(u)
-        mags = [r.mag for r in matched + unmatched if cov.contains(r) and r.mag is not None]
+        u_sorted = sorted(u, key=lambda r: r.origin_time)
         return {
             "events": total,
             "matched": len(m),
             "match_rate": (len(m) / total) if total else None,
-            "unmatched": [r.key for r in sorted(u, key=lambda r: r.origin_time)],
-            "input_min_mag": min(mags) if mags else None,
+            "unmatched": [r.key for r in u_sorted][:LIST_LIMIT],
+            "unmatched_count": len(u),
+            "unmatched_outside_overlap": len(outside),
+            "input_min_mag": min(inside_mags) if inside_mags else None,
         }
 
-    a_side = side([p.a for p in result.pairs], result.unmatched_a)
-    b_side = side([p.b for p in result.pairs], result.unmatched_b)
-    warnings = []
-    if min_mag is not None:
-        # If one input stops near the cutoff (e.g. it was downloaded with
-        # minmagnitude), quakes the other catalog rates just above the cutoff
-        # may be missing from it simply because its own scale rated them lower.
-        for name, own, other in (("a", a_side, "b"), ("b", b_side, "a")):
-            floor = own["input_min_mag"]
-            if floor is not None and floor > min_mag - TRUNCATION_MARGIN:
-                warnings.append(
-                    {"kind": "possible-truncation", "input": name, "other": other,
-                     "input_min_mag": floor, "cutoff": min_mag}
-                )
+    a_side = side([(p.a, p.b) for p in result.pairs], result.unmatched_a)
+    b_side = side([(p.b, p.a) for p in result.pairs], result.unmatched_b)
     return {
         "min_mag": min_mag,
         "note": "min_mag is applied to each catalog's own magnitude scale",
         "a": a_side,
         "b": b_side,
-        "warnings": warnings,
+        "warnings": floor_warnings(a_side, b_side, cov_a, cov_b, min_mag),
     }
+
+
+def floor_warnings(
+    a_side: dict,
+    b_side: dict,
+    cov_a: Optional[Coverage],
+    cov_b: Optional[Coverage],
+    min_mag: Optional[float],
+) -> list[dict]:
+    """Flag magnitude ranges where missing partners say nothing about agreement.
+
+    If input X has nothing below magnitude f (because it was downloaded with
+    a limit, or because that is all it detects), quakes the other catalog
+    rates below about f + SCALE_MARGIN may lack a partner for that reason
+    alone. A declared floor (a download limit or a catalog's published range)
+    is used when known; otherwise the smallest event actually present.
+    """
+    out = []
+    sides = {"a": (a_side, cov_a), "b": (b_side, cov_b)}
+    for name, other in (("a", "b"), ("b", "a")):
+        own, cov = sides[name]
+        other_side, _ = sides[other]
+        declared = cov.declared_floor() if cov is not None and cov.declared else None
+        floor = declared if declared is not None else own["input_min_mag"]
+        low = min_mag if min_mag is not None else other_side["input_min_mag"]
+        if floor is None or low is None or low >= floor + SCALE_MARGIN:
+            continue
+        out.append(
+            {
+                "kind": "declared-floor" if declared is not None else "observed-floor",
+                "input": name,
+                "other": other,
+                "floor": floor,
+                "low": low,
+                "suggest_min_mag": round(floor + SCALE_MARGIN, 2),
+            }
+        )
+    return out

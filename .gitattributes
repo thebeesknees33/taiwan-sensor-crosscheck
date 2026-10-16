@@ -1,0 +1,3 @@
+# Test fixtures are verbatim copies of published data; their sha256 values are
+# listed in tests/fixtures/PROVENANCE.md. Never convert their line endings.
+tests/fixtures/** -text

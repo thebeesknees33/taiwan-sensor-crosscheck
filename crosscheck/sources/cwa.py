@@ -7,20 +7,22 @@ Three products, all published by CWA:
   from CWA's public S3 bucket (zip of the latest 16 XML reports each) or from
   the REST API with a free key (JSON).
 - Earthquake catalog (reviewed, M>=3): E-A0073-001 (current year, JSON) and
-  E-A0073-002 (zip of one XML per year, 1990 onward).
+  E-A0073-002 (zip of one XML per year, 1990 onward). Each file declares its
+  time span, region and magnitude range in CatalogInfo; catalog years are
+  UTC years.
 
-Format notes, all checked against real saved files (see docs/SOURCES.md):
-- OriginTime is Taiwan local time. Older REST records use
+Format notes, checked against real saved files (see docs/SOURCES.md):
+- OriginTime is Taiwan local time, in whole seconds. Older REST records use
   "YYYY-MM-DD HH:MM:SS" with no offset; newer ones and all XML use
   ISO 8601 with "+08:00". Both are converted to UTC here.
 - Magnitude is local magnitude ML (Chinese label 芮氏規模, English "ML").
-- Small-area reports all carry EarthquakeNo <year>000, so EarthquakeNo alone
-  is not an id.
+- Every small-area report seen (32 files, 2026) carries EarthquakeNo
+  <ROC year>000, so EarthquakeNo alone is not an id.
 - XML values are text, some with leading spaces; files may start with a BOM.
 - Catalog gap/rms/erh/erz carry units (度 degrees, 秒 seconds, 公里 km).
 
-Data license: Taiwan Open Government Data License v1.0, which requires
-attribution (see NOTICE.md).
+Data licence: Taiwan Open Government Data License v1.0, which requires
+attribution (see NOTICE.md and coverage.CWA_ATTRIBUTION).
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ from typing import Any, Optional
 
 import requests
 
+from ..coverage import Segment
 from ..http import fetch
 from ..model import QuakeRecord, normalize_mag_type
 
@@ -73,6 +76,18 @@ def parse_origin_time(s: str) -> datetime:
 # ---------------------------------------------------------------- reports
 
 
+def infer_report_product(earthquake_no: Optional[str]) -> str:
+    """Significant vs small-area, from the report itself.
+
+    All 32 small-area reports seen (E-A0016-001/-002 on S3, Oct 2026) are
+    numbered <ROC year>000 while significant reports count up from 001. That
+    is an inference from one year of files; a dataset id, when known, wins.
+    """
+    if earthquake_no and earthquake_no.endswith("000"):
+        return PRODUCTS["E-A0016"]
+    return PRODUCTS["E-A0015"]
+
+
 def parse_rest_json(
     data: bytes | str | dict,
     product: Optional[str] = None,
@@ -97,8 +112,7 @@ def parse_report_xml(
     retrieved_at: Optional[datetime] = None,
 ) -> QuakeRecord:
     """Parse one report XML file from CWA's S3 bucket."""
-    root = _xml_root(data)
-    doc = _xml_to_dict(root)
+    doc = _xml_to_dict(_xml_root(data))
     dataset = doc.get("dataset") or {}
     eq = dataset.get("Earthquake")
     if eq is None:
@@ -110,7 +124,7 @@ def parse_report_xml(
         "IssueTime": info.get("IssueTime"),
         "language": info.get("datasetLanguage"),
     }
-    return _report_record(eq, product or "cwa-report", meta, retrieved_at)
+    return _report_record(eq, product, meta, retrieved_at)
 
 
 def parse_report_zip(
@@ -123,7 +137,7 @@ def parse_report_zip(
         return [parse_report_xml(z.read(n), product, retrieved_at) for n in names]
 
 
-def _report_record(eq: dict, product: str, meta: Optional[dict], retrieved_at) -> QuakeRecord:
+def _report_record(eq: dict, product: Optional[str], meta: Optional[dict], retrieved_at) -> QuakeRecord:
     info = eq["EarthquakeInfo"]
     epi = info["Epicenter"]
     mag = info.get("EarthquakeMagnitude") or {}
@@ -132,7 +146,7 @@ def _report_record(eq: dict, product: str, meta: Optional[dict], retrieved_at) -
     issue = (meta or {}).get("IssueTime") or eq.get("IssueTime")
     return QuakeRecord(
         source="cwa",
-        product=product,
+        product=product or infer_report_product(number),
         # Language-independent id: the zh and en versions of a report share it.
         source_id=f"{number}-{t:%Y%m%dT%H%M%S}",
         origin_time=t,
@@ -155,32 +169,48 @@ def _report_record(eq: dict, product: str, meta: Optional[dict], retrieved_at) -
     )
 
 
-def _product_for(resource_id: str) -> str:
+def _product_for(name: str) -> Optional[str]:
     for prefix, product in PRODUCTS.items():
-        if resource_id.startswith(prefix):
+        if prefix in name:
             return product
-    return "cwa-report"
+    return None
 
 
 # ---------------------------------------------------------------- catalog
 
 
-def parse_catalog_json(data: bytes | str | dict, retrieved_at=None) -> list[QuakeRecord]:
-    """Parse the current-year catalog E-A0073-001.json."""
+def parse_catalog_json(
+    data: bytes | str | dict, retrieved_at=None, segments: Optional[list] = None
+) -> list[QuakeRecord]:
+    """Parse the current-year catalog E-A0073-001.json.
+
+    If ``segments`` is a list, the file's declared coverage is appended to it.
+    """
     doc = json.loads(_strip_bom(data)) if isinstance(data, (bytes, str)) else data
-    catalog = doc["cwaopendata"]["Dataset"]["Catalog"]
+    root = doc["cwaopendata"]
+    catalog = root["Dataset"]["Catalog"]
+    if segments is not None:
+        seg = _catalog_segment(catalog, str(root.get("identifier") or "CWA catalog"))
+        if seg:
+            segments.append(seg)
     return _catalog_records(_as_list(catalog.get("EarthquakeInfo")), retrieved_at)
 
 
-def parse_catalog_xml(data: bytes | str, retrieved_at=None) -> list[QuakeRecord]:
+def parse_catalog_xml(data: bytes | str, retrieved_at=None, segments: Optional[list] = None) -> list[QuakeRecord]:
     """Parse one yearly catalog XML (CWA-EQ-Catalog-YYYY.xml)."""
     doc = _xml_to_dict(_xml_root(data))
-    catalog = (doc.get("Dataset") or {}).get("Catalog") or {}
+    catalog = (doc.get("Dataset") or {}).get("Catalog")
+    if not isinstance(catalog, dict):
+        raise ValueError("no <Dataset><Catalog>; not a CWA catalog XML")
+    if segments is not None:
+        seg = _catalog_segment(catalog, str(doc.get("identifier") or "CWA catalog"))
+        if seg:
+            segments.append(seg)
     return _catalog_records(_as_list(catalog.get("EarthquakeInfo")), retrieved_at)
 
 
 def parse_catalog_zip(
-    data: bytes, years: Optional[set[int]] = None, retrieved_at=None
+    data: bytes, years: Optional[set[int]] = None, retrieved_at=None, segments: Optional[list] = None
 ) -> list[QuakeRecord]:
     """Parse the historical catalog zip E-A0073-002.zip, optionally only some years."""
     out: list[QuakeRecord] = []
@@ -188,8 +218,23 @@ def parse_catalog_zip(
         for name in sorted(z.namelist()):
             m = re.fullmatch(r"CWA-EQ-Catalog-(\d{4})\.xml", Path(name).name)
             if m and (years is None or int(m.group(1)) in years):
-                out.extend(parse_catalog_xml(z.read(name), retrieved_at))
+                out.extend(parse_catalog_xml(z.read(name), retrieved_at, segments))
     return out
+
+
+def _catalog_segment(catalog: dict, label: str) -> Optional[Segment]:
+    """The coverage a catalog file declares in its CatalogInfo."""
+    info = catalog.get("CatalogInfo") or {}
+    region = info.get("Region") or {}
+    try:
+        lon_min, lon_max = _range(region.get("LongitudeRange"))
+        lat_min, lat_max = _range(region.get("LatitudeRange"))
+        mag_min, _ = _range(info.get("MagnitudeRange"))
+        start = parse_origin_time(_text(info.get("StartTime")) or "")
+        end = parse_origin_time(_text(info.get("EndTime")) or "")
+    except (TypeError, ValueError):
+        return None
+    return Segment(start, end, (lon_min, lat_min, lon_max, lat_max), mag_min, label)
 
 
 def _catalog_records(items: list[dict], retrieved_at) -> list[QuakeRecord]:
@@ -235,31 +280,48 @@ def _catalog_records(items: list[dict], retrieved_at) -> list[QuakeRecord]:
 # ---------------------------------------------------------------- auto-detect
 
 
-def parse_file(path: str | Path, product: Optional[str] = None) -> list[QuakeRecord]:
-    """Parse any saved CWA file: report/catalog zip, report/catalog XML, REST or catalog JSON."""
+def parse_file(path: str | Path, segments: Optional[list] = None) -> list[QuakeRecord]:
+    """Parse any saved CWA file: report/catalog zip, report/catalog XML, REST or catalog JSON.
+
+    Catalog files append their declared coverage to ``segments`` if given.
+    Raises ValueError naming the file if it is not a supported CWA product.
+    """
     path = Path(path)
-    data = path.read_bytes()
-    name = path.name
-    if product is None:
-        for prefix, p in PRODUCTS.items():
-            if prefix in name:
-                product = p
+    try:
+        return _parse_bytes(path.read_bytes(), _product_for(path.name), segments)
+    except (ValueError, KeyError, TypeError, ET.ParseError, zipfile.BadZipFile) as e:
+        raise ValueError(f"{path.name}: {e}") from None
+
+
+def _parse_bytes(data: bytes, product: Optional[str], segments: Optional[list]) -> list[QuakeRecord]:
     if data[:2] == b"PK":
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             names = z.namelist()
         if any(re.search(r"CWA-EQ-Catalog-\d{4}\.xml$", n) for n in names):
-            return parse_catalog_zip(data)
-        return parse_report_zip(data, product)
+            return parse_catalog_zip(data, segments=segments)
+        if any(n.lower().endswith(".xml") for n in names):
+            return parse_report_zip(data, product)
+        raise ValueError("zip holds no CWA report or catalog XML")
     head = _strip_bom(data[:4096]).lstrip()
     if head.startswith(b"<"):
-        # Catalog files use <Dataset>; report files use lower-case <dataset>.
-        if _xml_root(data).find("{*}Dataset") is not None:
-            return parse_catalog_xml(data)
-        return [parse_report_xml(data, product)]
+        root = _xml_root(data)
+        if root.find("{*}Dataset/{*}Catalog") is not None:
+            return parse_catalog_xml(data, segments=segments)
+        if root.find("{*}dataset/{*}Earthquake") is not None:
+            return [parse_report_xml(data, product)]
+        dataid = root.findtext("{*}dataid") or root.findtext("{*}identifier") or "?"
+        raise ValueError(f"unsupported CWA XML product ({dataid})")
     doc = json.loads(_strip_bom(data))
-    if "cwaopendata" in doc:
-        return parse_catalog_json(doc)
-    return parse_rest_json(doc, product)
+    if not isinstance(doc, dict):
+        raise ValueError("unsupported JSON")
+    cwa_root = doc.get("cwaopendata")
+    if isinstance(cwa_root, dict):
+        if isinstance((cwa_root.get("Dataset") or {}).get("Catalog"), dict):
+            return parse_catalog_json(doc, segments=segments)
+        raise ValueError(f"unsupported CWA JSON product ({cwa_root.get('dataid') or cwa_root.get('identifier') or '?'})")
+    if "success" in doc and "records" in doc:
+        return parse_rest_json(doc, product)
+    raise ValueError("not a CWA REST response or catalog file")
 
 
 # ---------------------------------------------------------------- fetching
@@ -301,20 +363,55 @@ def fetch_reports_rest(
 
 
 def fetch_catalog(
-    years: Optional[set[int]] = None, raw_dir: Optional[Path] = None, session=None
+    years: Optional[set[int]] = None,
+    raw_dir: Optional[Path] = None,
+    session=None,
+    segments: Optional[list] = None,
+    now: Optional[datetime] = None,
 ) -> list[QuakeRecord]:
-    """CWA's reviewed catalog. Current year from E-A0073-001.json; past years from E-A0073-002.zip."""
-    this_year = datetime.now(TAIPEI).year
-    want_current = years is None or this_year in years
-    past = None if years is None else {y for y in years if y != this_year}
-    out: list[QuakeRecord] = []
-    if past is None or past:
+    """CWA's reviewed catalog for the given UTC years (all years if None).
+
+    Past years come from E-A0073-002.zip and the current year from
+    E-A0073-001.json. CWA adds a finished year to the zip some weeks into the
+    next year (2025's file is dated 2026-01-15), so for last year both files
+    are read and de-duplicated, keeping the zip copy. Declared coverage is
+    appended to ``segments``, clipped to the requested years.
+    """
+    this_year = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).year
+    need_zip = years is None or any(y < this_year for y in years)
+    need_json = years is None or any(y >= this_year - 1 for y in years)
+    out: dict[str, QuakeRecord] = {}
+    segs: list[Segment] = []
+    if need_zip:
         got = fetch(S3_BASE + "E-A0073-002.zip", raw_dir=raw_dir, name="E-A0073-002.zip", session=session)
-        out.extend(parse_catalog_zip(got.body, past, got.retrieved_at))
-    if want_current:
+        for r in parse_catalog_zip(got.body, years, got.retrieved_at, segs):
+            out.setdefault(r.key, r)
+    if need_json:
         got = fetch(S3_BASE + "E-A0073-001.json", raw_dir=raw_dir, name="E-A0073-001.json", session=session)
-        out.extend(parse_catalog_json(got.body, got.retrieved_at))
-    return sorted(out, key=lambda r: r.origin_time)
+        json_segs: list[Segment] = []
+        recs = parse_catalog_json(got.body, got.retrieved_at, json_segs)
+        if years is not None:
+            recs = [r for r in recs if r.origin_time.year in years]
+            json_segs = clip_segments_to_years(json_segs, years)
+        segs.extend(json_segs)
+        for r in recs:
+            out.setdefault(r.key, r)
+    if segments is not None:
+        segments.extend(segs)
+    return sorted(out.values(), key=lambda r: r.origin_time)
+
+
+def clip_segments_to_years(segs: list[Segment], years: set[int]) -> list[Segment]:
+    """Keep only the parts of each segment that fall inside the given UTC years."""
+    out = []
+    for y in sorted(years):
+        lo = datetime(y, 1, 1, tzinfo=timezone.utc)
+        hi = datetime(y + 1, 1, 1, tzinfo=timezone.utc) - timedelta(microseconds=1)
+        for s in segs:
+            start, end = max(s.start, lo), min(s.end, hi)
+            if start <= end:
+                out.append(Segment(start, end, s.bbox, s.min_mag, s.label))
+    return out
 
 
 # ---------------------------------------------------------------- helpers
@@ -391,3 +488,14 @@ def _int(v) -> Optional[int]:
 def _num_unit(v) -> tuple[Optional[float], Optional[str]]:
     unit = v.get("@unit") if isinstance(v, dict) else None
     return _num(v), unit
+
+
+_RANGE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)\s*$")
+
+
+def _range(v) -> tuple[float, float]:
+    """'118.000-124.000' -> (118.0, 124.0)."""
+    m = _RANGE.match(_text(v) or "")
+    if not m:
+        raise ValueError(f"not a range: {v!r}")
+    return float(m.group(1)), float(m.group(2))

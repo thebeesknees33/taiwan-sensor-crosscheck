@@ -3,12 +3,17 @@
 Format notes, all checked against real saved responses (see docs/SOURCES.md):
 - geometry.coordinates is [lon, lat, depth_km]; depth can be negative or null.
 - properties.time / updated are signed epoch milliseconds, UTC.
-- mag and magType can be null; magType case varies ("mww", "Mi", "Ml").
+- mag and magType can be null; magType case varies ("mww", "Mfa").
 - ids / sources / types are comma lists with leading and trailing commas.
 - 'place' text changes over time and can name Japan for Taiwan-region
   events, so selection is always by coordinates.
 - 'updated' is the last update, not first publication, so it is no use for
   latency; we record our own retrieved_at instead.
+
+Licence: USGS-authored data is a US Government work (public domain in the
+US, per USGS policy; not checked against a primary terms page here). ComCat
+also carries solutions authored by other agencies (e.g. gcmt, iscgem and
+regional networks), whose terms were not checked.
 """
 
 from __future__ import annotations
@@ -18,12 +23,14 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Optional
+from urllib.parse import parse_qs, urlsplit
 
 import requests
 
+from ..coverage import GLOBAL_BBOX, Coverage, Segment
 from ..http import fetch
 from ..model import QuakeRecord, normalize_mag_type
-from . import TAIWAN_BBOX
+from . import TAIWAN_FETCH_BBOX
 
 FDSN_BASE = "https://earthquake.usgs.gov/fdsnws/event/1/"
 MAX_PER_QUERY = 20000  # ComCat's maxAllowed per request
@@ -88,10 +95,38 @@ def parse_geojson(
     return out
 
 
+def coverage_from_geojson(data: bytes | str | dict) -> Optional[Coverage]:
+    """Coverage of a saved FDSN query response, read from its metadata.url.
+
+    Returns None when the response does not say what was asked for (summary
+    feeds, single events, radius queries).
+    """
+    doc = json.loads(data) if isinstance(data, (bytes, str)) else data
+    url = (doc.get("metadata") or {}).get("url") or ""
+    parts = urlsplit(url)
+    if not parts.path.endswith("/fdsnws/event/1/query"):
+        return None
+    q = {k: v[-1] for k, v in parse_qs(parts.query).items()}
+    if "starttime" not in q or "endtime" not in q:
+        return None
+    if any(k in q for k in ("latitude", "longitude", "maxradius", "maxradiuskm", "lat", "lon")):
+        return None  # circular region: not representable as a box
+    box_keys = ("minlongitude", "minlatitude", "maxlongitude", "maxlatitude")
+    if all(k in q for k in box_keys):
+        bbox = tuple(float(q[k]) for k in box_keys)
+    elif any(k in q for k in box_keys):
+        return None
+    else:
+        bbox = GLOBAL_BBOX
+    min_mag = float(q["minmagnitude"]) if "minmagnitude" in q else None
+    seg = Segment(_parse_query_time(q["starttime"]), _parse_query_time(q["endtime"]), bbox, min_mag, "USGS FDSN query")
+    return Coverage([seg])
+
+
 def fetch_events(
     start: datetime,
     end: datetime,
-    bbox: tuple[float, float, float, float] = TAIWAN_BBOX,
+    bbox: tuple[float, float, float, float] = TAIWAN_FETCH_BBOX,
     min_mag: Optional[float] = None,
     raw_dir: Optional[Path] = None,
     session: Optional[requests.Session] = None,
@@ -106,6 +141,12 @@ def fetch_events(
     for rec in _fetch_window(_utc(start), _utc(end), bbox, min_mag, raw_dir, sess):
         seen.setdefault(rec.source_id, rec)
     return sorted(seen.values(), key=lambda r: r.origin_time)
+
+
+def query_coverage(
+    start: datetime, end: datetime, bbox: tuple[float, float, float, float], min_mag: Optional[float]
+) -> Coverage:
+    return Coverage([Segment(_utc(start), _utc(end), bbox, min_mag, "USGS FDSN query")])
 
 
 def _fetch_window(start, end, bbox, min_mag, raw_dir, sess) -> Iterable[QuakeRecord]:
@@ -169,3 +210,8 @@ def _utc(t: datetime) -> datetime:
     if t.tzinfo is None:
         return t.replace(tzinfo=timezone.utc)
     return t.astimezone(timezone.utc)
+
+
+def _parse_query_time(s: str) -> datetime:
+    """FDSN starttime/endtime: a date or date-time, UTC unless an offset is given."""
+    return _utc(datetime.fromisoformat(s.replace("Z", "+00:00")))

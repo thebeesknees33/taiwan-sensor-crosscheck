@@ -1,14 +1,16 @@
 """Decide which records in two catalogs describe the same earthquake.
 
 Method (see docs/METHOD.md for sources):
-- Gate: |origin-time difference| <= time window AND epicentral distance <=
-  distance window. Defaults 16 s / 100 km are the values USGS itself uses
-  (PDL DefaultAssociator and libcomcat associate()).
+- Gate: |origin-time difference| <= time window AND great-circle epicentral
+  distance <= distance window. The defaults, 16 s and 100 km, are the values
+  USGS uses (PDL DefaultAssociator, libcomcat associate()); PDL applies the
+  100 km as a lat/lon box, we apply it as a circle.
 - Magnitude is NOT a gate. CWA reports ML while USGS reports mb/Mww etc.;
   differences of ~0.5 between scales are expected for some Taiwan events.
 - One-to-one: each record pairs with at most one record from the other
   catalog. Within each cluster of mutually reachable records the pairing
-  first maximises the number of matches, then minimises the total of
+  first maximises the number of matches, then minimises the total of a
+  PDL-style normalized cost
   cost = sqrt((dt / time_window)^2 + (distance / dist_window)^2).
 - A match is flagged ambiguous when some other candidate for either record
   is nearly as good (runner-up cost <= ambiguity_ratio * cost).
@@ -19,6 +21,7 @@ from __future__ import annotations
 import bisect
 import math
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence
 
 import numpy as np
@@ -28,6 +31,13 @@ from .geo import distance_km
 from .model import QuakeRecord
 
 _INFEASIBLE = 1e6  # far above any feasible cost (each is <= sqrt(2))
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_US = timedelta(microseconds=1)
+
+
+def _micros(t: datetime) -> int:
+    """Exact integer microseconds since the epoch (floats lose exactness at the gate edges)."""
+    return (t - _EPOCH) // _US
 
 
 @dataclass(frozen=True)
@@ -62,20 +72,23 @@ def match(
     config: MatchConfig = MatchConfig(),
 ) -> MatchResult:
     T, D = config.time_window_s, config.dist_window_km
-    if T <= 0 or D <= 0:
+    if not (T > 0 and D > 0 and math.isfinite(T) and math.isfinite(D)):
         raise ValueError("time and distance windows must be positive")
+    if not (config.ambiguity_ratio >= 1 and math.isfinite(config.ambiguity_ratio)):
+        raise ValueError("ambiguity ratio must be >= 1")
+    t_us = round(T * 1e6)
     b_sorted = sorted(range(len(b)), key=lambda j: b[j].origin_time)
-    b_times = [b[j].origin_time.timestamp() for j in b_sorted]
+    b_times = [_micros(b[j].origin_time) for j in b_sorted]
 
     # Candidate edges inside the gate: (i, j) -> (cost, dt, dist)
     edges: dict[tuple[int, int], tuple[float, float, float]] = {}
     for i, ra in enumerate(a):
-        t = ra.origin_time.timestamp()
-        lo = bisect.bisect_left(b_times, t - T)
-        hi = bisect.bisect_right(b_times, t + T)
+        t = _micros(ra.origin_time)
+        lo = bisect.bisect_left(b_times, t - t_us)
+        hi = bisect.bisect_right(b_times, t + t_us)
         for k in range(lo, hi):
             j = b_sorted[k]
-            dt = t - b_times[k]
+            dt = (t - b_times[k]) / 1e6
             d = distance_km(ra.lat, ra.lon, b[j].lat, b[j].lon)
             if d <= D:
                 edges[(i, j)] = (math.hypot(dt / T, d / D), dt, d)
@@ -152,12 +165,13 @@ def sweep(
     b: Sequence[QuakeRecord],
     time_windows_s: Sequence[float] = (16, 30, 60, 120),
     dist_windows_km: Sequence[float] = (50, 100, 150),
+    ambiguity_ratio: float = MatchConfig.ambiguity_ratio,
 ) -> list[dict]:
     """How the number of matches depends on the window choice."""
     rows = []
     for T in time_windows_s:
         for D in dist_windows_km:
-            r = match(a, b, MatchConfig(time_window_s=T, dist_window_km=D))
+            r = match(a, b, MatchConfig(time_window_s=T, dist_window_km=D, ambiguity_ratio=ambiguity_ratio))
             rows.append(
                 {
                     "time_window_s": T,
